@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Phishing Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="particles"></div>
+    <div class="container">
+        <h1>Phishing Scanner</h1>
+        <p>Instagram linklerinizi analiz edin, güvenliğinizi üst düzeye çıkarın.</p>
+        <form method="POST" class="input-group">
+            <input type="text" name="url" placeholder="URL girin (ör. https://instagram.com)">
+            <button type="submit">Analiz Et</button>
+        </form>
+        <p class="info-message">Doğrulama adımlarımızdan bir tanesinde Selenium kütüphanesini kullandığımızdan dolayı sistemin daha doğru analiz yapalabilmesi için lütfen tarayıcı olarak Edge kullanınız.</p>
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+    </div>
+    <footer>© 2025 Phishing Scanner - Samet Çelen Tarafından Geliştirildi</footer>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

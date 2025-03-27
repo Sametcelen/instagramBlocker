@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Tarama Sonucu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="particles"></div>
+    <div class="container">
+        <h1>Analiz Sonucu</h1>
+        <div class="result-box">
+            {% if result is defined %}
+                {% if result.is_phishing %}
+                    <div class="alert">⚠️ Kimlik Avı Tespit Edildi</div>
+                {% else %}
+                    <div class="safe">✅ Güvenilir Site</div>
+                {% endif %}
+                <p><strong>Güvenilirlik:</strong> {{ "%.1f"|format(result.confidence * 100) }}%</p>
+                <p><strong>Neden:</strong> {{ result.reason }}</p>
+                {% if result.details is defined %}
+                    <ul>
+                        <!-- Domain Analizi -->
+                        {% if result.details.domain_analysis %}
+                            <li>Alan Analizi:
+                                <ul>
+                                    {% if result.details.domain_analysis.typosquatting %}
+                                        <li>Benzer Alan: {{ result.details.domain_analysis.typosquatting.closest_legitimate_domain }} (Benzerlik: {{ "%.1f"|format((1 - result.details.domain_analysis.typosquatting.normalized_distance) * 100) }}%)</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.domain_age and result.details.domain_analysis.domain_age.age_days is not none %}
+                                        <li>Alan Yaşı: {{ result.details.domain_analysis.domain_age.age_days }} gün</li>
+                                    {% else %}
+                                        <li>Alan Yaşı: Bilinmiyor</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.dns and result.details.domain_analysis.dns.count is not none %}
+                                        <li>NS Kayıtları: {{ result.details.domain_analysis.dns.count }} adet</li>
+                                    {% else %}
+                                        <li>NS Kayıtları: Bilinmiyor</li>
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                        <!-- URL Yapısı -->
+                        {% if result.details.url_analysis %}
+                            <li>URL Yapısı:
+                                <ul>
+                                    {% if result.details.url_analysis.suspicious_keywords and result.details.url_analysis.suspicious_keywords.found %}
+                                        <li>Şüpheli Kelimeler: {{ result.details.url_analysis.suspicious_keywords.found|join(', ') }}</li>
+                                    {% endif %}
+                                    {% if result.details.url_analysis.subdomains and result.details.url_analysis.subdomains.count > 2 %}
+                                        <li>Alt Alan Adı Sayısı: {{ result.details.url_analysis.subdomains.count }}</li>
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                        <!-- SSL Durumu -->
+                        {% if result.details.ssl_analysis %}
+                            <li>SSL Durumu:
+                                <ul>
+                                    <li>HTTPS: {{ "Evet" if result.details.ssl_analysis.has_https else "Hayır" }}</li>
+                                    <li>Sertifika Geçerli: {{ "Evet" if result.details.ssl_analysis.certificate_valid else "Hayır" }}</li>
+                                    {% if result.details.ssl_analysis.expires_soon %}
+                                        <li>Sertifika Yakında Bitiyor</li>
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                        <!-- İçerik Analizi -->
+                        {% if result.details.content_analysis %}
+                            <li>İçerik Analizi:
+                                <ul>
+                                    {% if result.details.content_analysis.suspicious_forms and result.details.content_analysis.suspicious_forms.detected %}
+                                        <li>Şüpheli Form Tespit Edildi</li>
+                                    {% endif %}
+                                    {% if result.details.content_analysis.urgency_language and result.details.content_analysis.urgency_language.detected %}
+                                        <li>Acil Durum İfadeleri: {{ result.details.content_analysis.urgency_language.phrases|join(', ') }}</li>
+                                    {% endif %}
+                                    {% if result.details.content_analysis.error %}
+                                        <li class="error-content">{{ result.details.content_analysis.error }}</li>
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                        <!-- Honey Test -->
+                        {% if result.details.honey_credentials_test and result.details.honey_credentials_test.test_performed %}
+                            <li>Sahte Kimlik Testi:
+                                <ul>
+                                    <li>Sahte Kimlik Kabul: {{ "Evet" if result.details.honey_credentials_test.credentials_accepted else "Hayır" }}</li>
+                                    <li>Yönlendirme: {{ result.details.honey_credentials_test.current_url if result.details.honey_credentials_test.redirected else "Yok" }}</li>
+                                    {% if result.details.honey_credentials_test.two_factor_detected %}
+                                        <li>2FA Tespit: Evet</li>
+                                        <li>2FA Sonuç: {{ "Kabul Edildi" if result.details.honey_credentials_test.two_factor_accepted_fake_code else "Reddedildi" }}</li>
+                                        {% if result.details.honey_credentials_test.twofa_current_url %}
+                                            <li>2FA Sonrası URL: {{ result.details.honey_credentials_test.twofa_current_url }}</li>
+                                        {% endif %}
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                    </ul>
+                {% endif %}
+                {% if result.is_phishing %}
+                    <p class="recommendation">⚠️ Öneri: Bu tehlikeli URL’de kimlik bilgilerinizi girmeyin!</p>
+                {% endif %}
+            {% else %}
+                <p class="error">Hata: Analiz sonucu bulunamadı. Lütfen tekrar deneyin.</p>
+            {% endif %}
+        </div>
+        <a href="/" class="back-button">Yeni Bir URL Tara</a>
+    </div>
+    <footer>© 2025 Phishing Scanner - Samet Çelen Tarafından Geliştirildi</footer>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
