@@ -846,7 +846,7 @@ class InstagramPhishingDetector:
              
                         
             if driver is not None:
-            driver.quit()
+                driver.quit()
             
             return credentials_accepted or details["two_factor_accepted_fake_code"], details
         
