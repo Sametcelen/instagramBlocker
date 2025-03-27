@@ -240,7 +240,7 @@ class InstagramPhishingDetector:
             }
         score *= suspicious_domain_score
         
-        # Check typosquatting with Levenshtein distance
+       
         typo_score = 1.0
         min_distance = float('inf')
         closest_domain = None
@@ -251,16 +251,16 @@ class InstagramPhishingDetector:
                 min_distance = distance
                 closest_domain = legit_domain
         
-        # Calculate normalized distance (0 = identical, 1 = very different)
+        
         if closest_domain:
             max_len = max(len(domain), len(closest_domain))
             normalized_distance = min_distance / max_len if max_len > 0 else 1
             
-            # If very similar but not exact match, it's suspicious
+            
             if 0 < normalized_distance < 0.3:
-                typo_score = 0.2  # Likely typosquatting
+                typo_score = 0.2  # muhtemel typosquatting
             elif normalized_distance < 0.5:
-                typo_score = 0.5  # Somewhat suspicious
+                typo_score = 0.5  # biraz şüpheli
         
         details["typosquatting"] = {
             "score": typo_score,
@@ -269,7 +269,7 @@ class InstagramPhishingDetector:
         }
         score *= typo_score
         
-        # Check for punycode/IDN homograph attack
+        # zayıf kod homografik saldırı kontrolü
         if domain.startswith("xn--"):
             score *= 0.3
             details["punycode"] = {
@@ -281,12 +281,12 @@ class InstagramPhishingDetector:
                 "detected": False
             }
         
-        # Check domain age
+        # domain yaşı kontrolü
         domain_age_score = 1.0
         try:
             domain_info = whois.whois(domain)
             if domain_info.creation_date:
-                # Convert to a single datetime if it's a list
+                
                 if isinstance(domain_info.creation_date, list):
                     creation_date = domain_info.creation_date[0]
                 else:
@@ -295,7 +295,7 @@ class InstagramPhishingDetector:
                 age_days = (datetime.now() - creation_date).days
                 
                 if age_days < 30:
-                    domain_age_score = 0.2  # Very new domains are highly suspicious
+                    domain_age_score = 0.2  # çok yeni alan adı varsa bu fazla şüpheli
                 elif age_days < 90:
                     domain_age_score = 0.4
                 elif age_days < 180:
@@ -309,14 +309,14 @@ class InstagramPhishingDetector:
                     "score": domain_age_score
                 }
             else:
-                domain_age_score = 0.4  # No creation date is suspicious
+                domain_age_score = 0.4  
                 details["domain_age"] = {
                     "creation_date": None,
                     "score": domain_age_score,
                     "note": "No creation date found which is unusual"
                 }
         except Exception as e:
-            domain_age_score = 0.5  # Couldn't determine age, moderately suspicious
+            domain_age_score = 0.5  
             details["domain_age"] = {
                 "error": str(e),
                 "score": domain_age_score,
@@ -332,9 +332,9 @@ class InstagramPhishingDetector:
             ns_count = len(ns_records)
             
             if ns_count == 0:
-                dns_score = 0.3  # No NS records is very suspicious
+                dns_score = 0.3  
             elif ns_count < 2:
-                dns_score = 0.7  # Legitimate domains usually have multiple NS records
+                dns_score = 0.7  
             
             details["dns"] = {
                 "ns_records": [str(record) for record in ns_records],
@@ -342,7 +342,7 @@ class InstagramPhishingDetector:
                 "score": dns_score
             }
         except Exception as e:
-            dns_score = 0.5  # DNS resolution failed, moderately suspicious
+            dns_score = 0.5  # DNS çözümleme başarısız , orta derece şüpheli
             details["dns"] = {
                 "error": str(e),
                 "score": dns_score,
@@ -502,7 +502,7 @@ class InstagramPhishingDetector:
                     not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
                     not_before = datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z')
                     
-                    # Check if certificate is currently valid
+        
                     now = datetime.now()
                     if now < not_before or now > not_after:
                         score *= 0.3
@@ -532,18 +532,18 @@ class InstagramPhishingDetector:
                         details["trusted_issuer"] = False
                     
         except (socket.gaierror, socket.timeout, ConnectionRefusedError):
-            # Could not connect to HTTPS port
+            # 
             score = 0.4
             details["has_https"] = False
             details["error"] = "Could not establish HTTPS connection"
         except ssl.SSLError as e:
-            # SSL error (invalid cert, etc)
+            # ssl hatası geçersiz olma durumu felan
             score = 0.3
             details["has_https"] = True
             details["certificate_valid"] = False
             details["error"] = f"SSL error: {str(e)}"
         except Exception as e:
-            # Other error
+            # diğer hata
             score = 0.5
             details["error"] = f"Unknown error checking SSL: {str(e)}"
         
@@ -698,25 +698,26 @@ class InstagramPhishingDetector:
             "two_factor_accepted_fake_code": False
         }
         
+        driver = None  # driver'ı None olarak tanımlıyoruz
         try:
-            # Setup Selenium for Edge
+            # Selenium için Edge ayarları
+            from msedge.selenium_tools import EdgeOptions, Edge
             service = Service(EdgeChromiumDriverManager().install())
             driver = webdriver.Edge(service=service, options=self.edge_options)
             
-            # Generate random credentials
             fake_username = f"test_user_{random.randint(10000, 99999)}"
             fake_password = f"TestP@ss{random.randint(10000, 99999)}"
             
-            # Navigate to URL
+            
             driver.get(url)
             details["test_performed"] = True
             
-            # Wait for page to load
+            
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
-            # Find and fill username and password fields
+            # kullanıcı adıyla şifreyi bul doldur 
             username_field = None
             password_field = None
             for selector in [
@@ -759,25 +760,25 @@ class InstagramPhishingDetector:
             
             original_url = driver.current_url
             submit_button.click()
-            time.sleep(3)  # Wait for page transition
+            time.sleep(3)  
             
-            # Check if redirected
+           
             current_url = driver.current_url
             details["redirected"] = original_url != current_url
             details["original_url"] = original_url
             details["current_url"] = current_url
             
-            # Analyze page content after submission
+            
             page_content = driver.page_source.lower()
             
-            # Success indicators (login successful)
+            # giriş başarılı
             success_indicators = ["/home", "/feed", "/timeline", "/dashboard", "success", "welcome", "account", "profile"]
             content_success_indicators = ["welcome", "logged in", "successful", "dashboard", "feed", "timeline", "profile"]
             
-            # Error indicators
+            # hata göstergesi
             error_indicators = ["incorrect", "invalid", "failed", "wrong", "error", "not recognized", "try again"]
             
-            # 2FA indicators
+            # 2FA göstergesi
             two_factor_indicators = [
                 "verification code", "two-factor", "2fa", "security code", "sms", "email verification", 
                 "enter code", "confirm your identity", "additional verification"
@@ -787,19 +788,18 @@ class InstagramPhishingDetector:
             content_indicates_success = any(indicator in page_content for indicator in content_success_indicators)
             has_error_message = any(indicator in page_content for indicator in error_indicators)
             
-            # Check if credentials were accepted (no error and either URL changed or success content)
             credentials_accepted = (url_changed_to_success or content_indicates_success) and not has_error_message
             details["credentials_accepted"] = credentials_accepted
             details["url_changed_to_success"] = url_changed_to_success
             details["content_indicates_success"] = content_indicates_success
             details["has_error_message"] = has_error_message
             
-            # Check for 2FA-like page
+            
             two_factor_detected = any(indicator in page_content for indicator in two_factor_indicators)
             details["two_factor_detected"] = two_factor_detected
             
             if two_factor_detected:
-                # Try to find a code input field
+                
                 code_field = None
                 for selector in [
                     "input[name='code']", "input[name='verification']", "input[type='text']", 
@@ -812,11 +812,11 @@ class InstagramPhishingDetector:
                         continue
                 
                 if code_field:
-                    # Enter a fake verification code
-                    fake_code = f"{random.randint(100000, 999999)}"  # 6-digit random code
+                    # sahte doğrulama kodu
+                    fake_code = f"{random.randint(100000, 999999)}"  # 6-digit random kod
                     code_field.send_keys(fake_code)
                     
-                    # Find and click submit button for 2FA
+                    
                     twofa_submit_button = None
                     for selector in ["button[type='submit']", "input[type='submit']", "button", ".btn", ".verify"]:
                         try:
@@ -827,9 +827,9 @@ class InstagramPhishingDetector:
                     
                     if twofa_submit_button:
                         twofa_submit_button.click()
-                        time.sleep(3)  # Wait for response
+                        time.sleep(3) 
                         
-                        # Check result after submitting fake 2FA code
+                      
                         new_url = driver.current_url
                         new_page_content = driver.page_source.lower()
                         
@@ -838,15 +838,16 @@ class InstagramPhishingDetector:
                                     any(indicator in new_page_content for indicator in content_success_indicators)
                         twofa_error = any(indicator in new_page_content for indicator in error_indicators)
                         
-                        # If fake code accepted (no error and success indicators present)
+
                         details["two_factor_accepted_fake_code"] = twofa_success and not twofa_error
                         details["twofa_current_url"] = new_url  # 2FA sonrası son URL
                         details["twofa_url_changed"] = twofa_url_changed
                         details["twofa_final_url"] = new_url
              
                         
+            if driver is not None:
             driver.quit()
-            # Return True if either credentials or fake 2FA code were accepted
+            
             return credentials_accepted or details["two_factor_accepted_fake_code"], details
         
         except Exception as e:
@@ -872,7 +873,7 @@ class InstagramPhishingDetector:
                     print("-"*60)
                     print("📊 Analysis Details:")
                     
-                    # Domain Analysis
+                    # Domain Analizi
                     domain_details = result["details"].get("domain_analysis", {})
                     print("\n🌐 Domain Analysis:")
                     if "typosquatting" in domain_details:
@@ -883,13 +884,13 @@ class InstagramPhishingDetector:
                         age = domain_details["domain_age"]
                         print(f"  • Domain age: {age.get('age_days', 'Unknown')} days" if age.get("creation_date") else "  • Domain age: Unknown (suspicious)")
                     
-                    # URL Analysis
+                    # URL Analiiz
                     url_details = result["details"].get("url_analysis", {})
                     if "suspicious_keywords" in url_details and url_details["suspicious_keywords"].get("found", []):
                         print(f"\n🔗 Suspicious URL Patterns:")
                         print(f"  • Keywords found: {', '.join(url_details['suspicious_keywords']['found'])}")
                     
-                    # Content Analysis
+                    # Content Analizi
                     content_details = result["details"].get("content_analysis", {})
                     if "suspicious_forms" in content_details and content_details["suspicious_forms"].get("detected", False):
                         print(f"\n📄 Page Content:")
@@ -922,13 +923,13 @@ class InstagramPhishingDetector:
                     print("-"*60)
                     print("📊 Analysis Details:")
                     
-                    # Domain Analysis
+                    # Domain Analizi
                     domain_details = result["details"].get("domain_analysis", {})
                     if "domain_age" in domain_details:
                         age = domain_details["domain_age"]
                         print(f"  • Domain age: {age.get('age_days', 'Unknown')} days" if age.get("creation_date") else "  • Domain age: Unknown")
                     
-                    # Honey Credentials Test (if performed)
+                    # Honey Credentials Test 
                     honey_details = result["details"].get("honey_credentials_test", {})
                     if honey_details.get("test_performed", False):
                         print(f"\n🍯 Honey Credentials Test:")
@@ -947,7 +948,6 @@ class InstagramPhishingDetector:
                     "details": {}
                 }
 
-# InstagramPhishingDetector sınıfının sonu
 
 from flask import Flask, request, render_template
 
@@ -964,7 +964,7 @@ def index():
         
         try:
             result = detector.analyze_url(url)
-            # Phishing ise detayları hazırla
+            # Phishing olursa detaylar
             if result["is_phishing"]:
                 details = {
                     "domain": {},
@@ -1008,4 +1008,5 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 10000))  # Renderın varsayılan portu, düzeltme yaptım burda
+    app.run(host='0.0.0.0', port=port, debug=False)  
