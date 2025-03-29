@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Phishing Scanner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tarama Sonucu</title>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
 <body>
     <div class="particles"></div>
     <div class="container">
@@ -15,7 +16,7 @@
             <input type="text" name="url" placeholder="URL girin (ör. https://instagram.com)">
             <button type="submit">Analiz Et</button>
         </form>
-        <p class="info-message">Doğrulama adımlarımızdan bir tanesinde Selenium kütüphanesini kullandığımızdan dolayı sistemin daha doğru analiz yapalabilmesi için lütfen tarayıcı olarak Edge kullanınız.</p>
+        <p class="info-message">Doğrulama adımlarımızda kullandığımız kütüphanelerden dolayı sistemin daha doğru analiz yapalabilmesi için lütfen tarayıcı olarak Chrome kullanınız.</p>
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}

@@ -1,3 +1,6 @@
+# Chrome için 
+
+
 import requests
 import re
 import random
@@ -14,9 +17,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from webdriver_manager.microsoft import EdgeChromiumDriverManager  # Edge için WebDriver Manager
-from selenium.webdriver.edge.options import Options  # Edge için Options
-from selenium.webdriver.edge.service import Service  # Edge için Service
+from webdriver_manager.chrome import ChromeDriverManager  # Chrome için WebDriver Manager
+from selenium.webdriver.chrome.options import Options  # Chrome için Options
+from selenium.webdriver.chrome.service import Service  # Chrome için Service
 from datetime import datetime, timedelta
 import os
 
@@ -55,20 +58,19 @@ class InstagramPhishingDetector:
             "bit.ly", "tinyurl.com", "rebrand.ly", "tiny.cc", "veshort.com", 
             "t2mio.com", "ow.ly", "bl.ink", "is.gd", "short.io", "cutt.ly"
         ]
-        
-        # Setup Edge options
-        self.edge_options = Options()  # Edge için Options
-        self.edge_options.add_argument("--headless")
-        self.edge_options.add_argument("--no-sandbox")
-        self.edge_options.add_argument("--disable-dev-shm-usage")
-        self.edge_options.add_argument("--disable-gpu")
-        self.edge_options.add_argument("--window-size=1920,1080")
-        self.edge_options.add_argument("--disable-extensions")
-        self.edge_options.add_argument("--disable-infobars")
-        self.edge_options.add_argument("--disable-notifications")
-        self.edge_options.add_argument("--disable-popup-blocking")
-        self.edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.edge_options.add_experimental_option("useAutomationExtension", False)
+            
+        self.chrome_options = Options()  # Chrome için Options
+        self.chrome_options.add_argument("--headless")
+        self.chrome_options.add_argument("--no-sandbox")
+        self.chrome_options.add_argument("--disable-dev-shm-usage")
+        self.chrome_options.add_argument("--disable-gpu")
+        self.chrome_options.add_argument("--window-size=1920,1080")
+        self.chrome_options.add_argument("--disable-extensions")
+        self.chrome_options.add_argument("--disable-infobars")
+        self.chrome_options.add_argument("--disable-notifications")
+        self.chrome_options.add_argument("--disable-popup-blocking")
+        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.chrome_options.add_experimental_option("useAutomationExtension", False)
 
     def analyze_url(self, url):
         """Main method to analyze a URL for phishing indicators"""
@@ -689,39 +691,39 @@ class InstagramPhishingDetector:
         return score, details
     
     def _test_honey_credentials(self, url):
-        """Test with fake credentials to see if the site accepts them and handles 2FA-like pages"""
+        """Test with fake credentials to detect phishing behavior."""
         details = {
             "test_performed": False,
             "credentials_accepted": False,
             "redirected": False,
             "two_factor_detected": False,
-            "two_factor_accepted_fake_code": False
+            "two_factor_accepted_fake_code": False,
+            "redirected_to_legit_instagram_without_2fa": False,
+            "redirected_to_legit_instagram": False
         }
         
-        driver = None  # driver'ı None olarak tanımlıyoruz
+        driver = None
         try:
-            # Selenium için Edge ayarları
-            from msedge.selenium_tools import EdgeOptions, Edge
-            service = Service(EdgeChromiumDriverManager().install())
-            driver = webdriver.Edge(service=service, options=self.edge_options)
+            print("WebDriver başlatılıyor...")
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=self.chrome_options)
+            print("WebDriver başlatıldı.")
             
             fake_username = f"test_user_{random.randint(10000, 99999)}"
             fake_password = f"TestP@ss{random.randint(10000, 99999)}"
             
-            
             driver.get(url)
             details["test_performed"] = True
-            
             
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
-            # kullanıcı adıyla şifreyi bul doldur 
             username_field = None
             password_field = None
             for selector in [
-                "input[name='username']", "input[name='email']", "input[type='text']", "input[type='email']"
+                "input[name='username']", "input[name='email']", 
+                "input[type='text']", "input[type='email']"
             ]:
                 try:
                     username_field = driver.find_element(By.CSS_SELECTOR, selector)
@@ -737,14 +739,12 @@ class InstagramPhishingDetector:
                     continue
             
             if not (username_field and password_field):
-                details["error"] = "Could not find username or password fields"
-                driver.quit()
+                details["error"] = "Kullanıcı adı veya şifre alanı bulunamadı"
                 return False, details
             
             username_field.send_keys(fake_username)
             password_field.send_keys(fake_password)
             
-            # Find and click submit button
             submit_button = None
             for selector in ["button[type='submit']", "input[type='submit']", "button", ".btn", "a.login"]:
                 try:
@@ -754,33 +754,26 @@ class InstagramPhishingDetector:
                     continue
             
             if not submit_button:
-                details["error"] = "Could not find submit button"
-                driver.quit()
+                details["error"] = "Gönder butonu bulunamadı"
                 return False, details
             
             original_url = driver.current_url
             submit_button.click()
-            time.sleep(3)  
+            WebDriverWait(driver, 10).until(lambda d: d.current_url != original_url or EC.presence_of_element_located((By.TAG_NAME, "body")))
             
-           
             current_url = driver.current_url
             details["redirected"] = original_url != current_url
             details["original_url"] = original_url
             details["current_url"] = current_url
             
-            
             page_content = driver.page_source.lower()
             
-            # giriş başarılı
             success_indicators = ["/home", "/feed", "/timeline", "/dashboard", "success", "welcome", "account", "profile"]
             content_success_indicators = ["welcome", "logged in", "successful", "dashboard", "feed", "timeline", "profile"]
-            
-            # hata göstergesi
             error_indicators = ["incorrect", "invalid", "failed", "wrong", "error", "not recognized", "try again"]
-            
-            # 2FA göstergesi
             two_factor_indicators = [
                 "verification code", "two-factor", "2fa", "security code", "sms", "email verification", 
+                "doğrulama", "iki adımda doğrulama", "güvenlik kodu", "güvenlik doğrulaması", "doğrulama kodu",
                 "enter code", "confirm your identity", "additional verification"
             ]
             
@@ -788,18 +781,34 @@ class InstagramPhishingDetector:
             content_indicates_success = any(indicator in page_content for indicator in content_success_indicators)
             has_error_message = any(indicator in page_content for indicator in error_indicators)
             
-            credentials_accepted = (url_changed_to_success or content_indicates_success) and not has_error_message
+            # Instagram domainine yönlendirme kontrolü (genel)
+            redirected_to_legit_instagram = any(domain in current_url.lower() for domain in self.legitimate_domains)
+            
+            # 2FA olmadan direkt Instagram'a yönlendirme kontrolü
+            two_factor_detected = any(indicator in page_content for indicator in two_factor_indicators)
+            details["two_factor_detected"] = two_factor_detected
+            
+            if redirected_to_legit_instagram and not has_error_message:
+                details["redirected_to_legit_instagram"] = True
+                if not two_factor_detected:
+                    details["redirected_to_legit_instagram_without_2fa"] = True
+                    details["note"] = "Sahte kimlik bilgileriyle 2FA olmadan resmi Instagram domainine yönlendirme - bu bir phishing göstergesidir"
+                    credentials_accepted = True  # 2FA olmadan Instagram'a gidiyorsa phishing
+                else:
+                    details["redirected_to_legit_instagram_without_2fa"] = False
+                    details["note"] = "Sahte kimlik bilgileriyle resmi Instagram domainine yönlendirme, ancak 2FA tespit edildi"
+                    credentials_accepted = True  # 2FA ile Instagram'a gidiyorsa da phishing
+            else:
+                details["redirected_to_legit_instagram_without_2fa"] = False
+                credentials_accepted = (url_changed_to_success or content_indicates_success) and not has_error_message
+            
             details["credentials_accepted"] = credentials_accepted
             details["url_changed_to_success"] = url_changed_to_success
             details["content_indicates_success"] = content_indicates_success
             details["has_error_message"] = has_error_message
             
-            
-            two_factor_detected = any(indicator in page_content for indicator in two_factor_indicators)
-            details["two_factor_detected"] = two_factor_detected
-            
+            # 2FA varsa kontrol et
             if two_factor_detected:
-                
                 code_field = None
                 for selector in [
                     "input[name='code']", "input[name='verification']", "input[type='text']", 
@@ -812,10 +821,8 @@ class InstagramPhishingDetector:
                         continue
                 
                 if code_field:
-                    # sahte doğrulama kodu
-                    fake_code = f"{random.randint(100000, 999999)}"  # 6-digit random kod
+                    fake_code = f"{random.randint(100000, 999999)}"
                     code_field.send_keys(fake_code)
-                    
                     
                     twofa_submit_button = None
                     for selector in ["button[type='submit']", "input[type='submit']", "button", ".btn", ".verify"]:
@@ -827,38 +834,40 @@ class InstagramPhishingDetector:
                     
                     if twofa_submit_button:
                         twofa_submit_button.click()
-                        time.sleep(3) 
+                        WebDriverWait(driver, 10).until(lambda d: d.current_url != current_url or EC.presence_of_element_located((By.TAG_NAME, "body")))
                         
-                      
                         new_url = driver.current_url
                         new_page_content = driver.page_source.lower()
                         
                         twofa_url_changed = new_url != current_url
                         twofa_success = any(indicator in new_url.lower() for indicator in success_indicators) or \
-                                    any(indicator in new_page_content for indicator in content_success_indicators)
+                                        any(indicator in new_page_content for indicator in content_success_indicators)
                         twofa_error = any(indicator in new_page_content for indicator in error_indicators)
                         
-
                         details["two_factor_accepted_fake_code"] = twofa_success and not twofa_error
-                        details["twofa_current_url"] = new_url  # 2FA sonrası son URL
+                        details["twofa_current_url"] = new_url
                         details["twofa_url_changed"] = twofa_url_changed
                         details["twofa_final_url"] = new_url
-             
-                        
-            if driver is not None:
-                driver.quit()
             
             return credentials_accepted or details["two_factor_accepted_fake_code"], details
         
         except Exception as e:
-            details["error"] = f"Error during test: {str(e)}"
-            driver.quit()
+            print(f"Hata oluştu: {str(e)}")
+            details["error"] = f"Hata oluştu: {str(e)}"
             return False, details
+        
+        finally:
+            if driver is not None:
+                print("Driver kapatılıyor...")
+                driver.quit()
+                print("Driver kapatıldı.")
+            else:
+                print("Driver None, kapatma yapılmadı.")
     
     def scan_url(self, url):
             """User-friendly method to analyze a URL and display results"""
             print("\n" + "="*60)
-            print("🔍 INSTAGRAM PHISHING SCANNER (Using Edge)")
+            print("🔍 INSTAGRAM PHISHING SCANNER (Using Chrome)")
             print("="*60)
             print(f"URL: {url}")
             print("-"*60)
@@ -964,44 +973,85 @@ def index():
         
         try:
             result = detector.analyze_url(url)
-            # Phishing olursa detaylar
-            if result["is_phishing"]:
-                details = {
-                    "domain": {},
-                    "url": {},
-                    "content": {},
-                    "honey": {}
+            # Tüm analiz detaylarını toplamak için ortak bir details yapısı
+            details = {
+                "domain_analysis": {},
+                "url_analysis": {},
+                "ssl_analysis": {},
+                "content_analysis": {},
+                "honey_credentials_test": {}
+            }
+            
+            # Domain Analizi
+            domain_details = result["details"].get("domain_analysis", {})
+            if "typosquatting" in domain_details:
+                details["domain_analysis"]["typosquatting"] = {
+                    "closest_legitimate_domain": domain_details["typosquatting"].get("closest_legitimate_domain", "N/A"),
+                    "normalized_distance": domain_details["typosquatting"].get("normalized_distance", 1),
+                    "similarity": f"{(1 - domain_details['typosquatting'].get('normalized_distance', 1)) * 100:.1f}%"
                 }
-                domain_details = result["details"].get("domain_analysis", {})
-                if "typosquatting" in domain_details:
-                    details["domain"]["typosquatting"] = {
-                        "similar_to": domain_details["typosquatting"].get("closest_legitimate_domain"),
-                        "similarity": f"{(1-domain_details['typosquatting'].get('normalized_distance', 1))*100:.1f}%"
-                    }
-                if "domain_age" in domain_details:
-                    details["domain"]["age"] = domain_details["domain_age"].get("age_days", "Unknown")
-                
-                url_details = result["details"].get("url_analysis", {})
-                if "suspicious_keywords" in url_details and url_details["suspicious_keywords"].get("found"):
-                    details["url"]["keywords"] = ", ".join(url_details["suspicious_keywords"]["found"])
-                
-                content_details = result["details"].get("content_analysis", {})
-                if "suspicious_forms" in content_details and content_details["suspicious_forms"].get("detected"):
-                    details["content"]["forms"] = "Suspicious login form detected"
-                if "urgency_language" in content_details and content_details["urgency_language"].get("detected"):
-                    details["content"]["urgency"] = ", ".join(content_details["urgency_language"].get("phrases", []))
-                
-                honey_details = result["details"].get("honey_credentials_test", {})
-                if honey_details.get("test_performed"):
-                    details["honey"]["credentials"] = "Accepted" if honey_details.get("credentials_accepted") else "Rejected"
-                    details["honey"]["redirected"] = honey_details.get("current_url") if honey_details.get("redirected") else "No"
-                    if honey_details.get("two_factor_detected"):
-                        details["honey"]["two_factor"] = "Detected"
-                        details["honey"]["two_factor_result"] = "Accepted" if honey_details.get("two_factor_accepted_fake_code") else "Rejected"
-                
-                return render_template('result.html', url=url, result=result, details=details)
-            else:
-                return render_template('result.html', url=url, result=result, details={})  
+            if "domain_age" in domain_details:
+                details["domain_analysis"]["domain_age"] = {
+                    "age_days": domain_details["domain_age"].get("age_days", "Unknown"),
+                    "creation_date": domain_details["domain_age"].get("creation_date", None)
+                }
+            if "dns" in domain_details:
+                details["domain_analysis"]["dns"] = {
+                    "count": domain_details["dns"].get("count", "Unknown")
+                }
+            
+            # URL Analizi
+            url_details = result["details"].get("url_analysis", {})
+            if "suspicious_keywords" in url_details and url_details["suspicious_keywords"].get("found"):
+                details["url_analysis"]["suspicious_keywords"] = {
+                    "found": url_details["suspicious_keywords"].get("found", [])
+                }
+            if "subdomains" in url_details:
+                details["url_analysis"]["subdomains"] = {
+                    "count": url_details["subdomains"].get("count", 0)
+                }
+            
+            # SSL Analizi
+            ssl_details = result["details"].get("ssl_analysis", {})
+            details["ssl_analysis"] = {
+                "has_https": ssl_details.get("has_https", False),
+                "certificate_valid": ssl_details.get("certificate_valid", False),
+                "expires_soon": ssl_details.get("expires_soon", False)
+            }
+            
+            # İçerik Analizi
+            content_details = result["details"].get("content_analysis", {})
+            if "suspicious_forms" in content_details and content_details["suspicious_forms"].get("detected"):
+                details["content_analysis"]["suspicious_forms"] = {
+                    "detected": True
+                }
+            if "urgency_language" in content_details and content_details["urgency_language"].get("detected"):
+                details["content_analysis"]["urgency_language"] = {
+                    "detected": True,
+                    "phrases": content_details["urgency_language"].get("phrases", [])
+                }
+            if "error" in content_details:
+                details["content_analysis"]["error"] = content_details["error"]
+            
+            # Honey Credentials Test
+            honey_details = result["details"].get("honey_credentials_test", {})
+            if honey_details.get("test_performed"):
+                details["honey_credentials_test"] = {
+                    "test_performed": True,
+                    "credentials_accepted": honey_details.get("credentials_accepted", False),
+                    "redirected": honey_details.get("redirected", False),
+                    "current_url": honey_details.get("current_url", "N/A") if honey_details.get("redirected") else "No",
+                    "two_factor_detected": honey_details.get("two_factor_detected", False),
+                    "two_factor_accepted_fake_code": honey_details.get("two_factor_accepted_fake_code", False),
+                    "redirected_to_legit_instagram": honey_details.get("redirected_to_legit_instagram", False),
+                    "redirected_to_legit_instagram_without_2fa": honey_details.get("redirected_to_legit_instagram_without_2fa", False)
+                }
+                if honey_details.get("two_factor_detected"):
+                    details["honey_credentials_test"]["two_factor_result"] = "Accepted" if honey_details.get("two_factor_accepted_fake_code") else "Rejected"
+            
+            # Sonuçları şablona gönder
+            return render_template('result.html', url=url, result=result, details=details)
+        
         except Exception as e:
             return render_template('index.html', error=f"Hata: {str(e)}")
     
