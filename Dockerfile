@@ -21,9 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Python çıktılarını tamponlama
 ENV PYTHONUNBUFFERED=1
 
-# Sağlık kontrolü
+# Sağlık kontrolü: $PORT runtime’da çözülecek
 HEALTHCHECK --interval=30s --timeout=3s \
-    CMD curl -f http://localhost:$PORT/ || exit 1
+    CMD curl -f http://localhost:"$PORT"/ || exit 1
 
-# Gunicorn ile Flask uygulamasını başlat
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "--timeout", "120", "app:app"]
+# Gunicorn ile Flask uygulamasını başlat: Shell formu kullanarak $PORT’un runtime’da çözülmesini sağla
+CMD gunicorn --bind 0.0.0.0:"$PORT" --workers 2 --timeout 120 app:app
