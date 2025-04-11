@@ -36,11 +36,7 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # 6. Ortam değişkenlerini ayarla
 ENV PYTHONUNBUFFERED=1
-ENV PORT=10000
-
-# 7. Sağlık kontrolü: $PORT runtime’da çözülecek
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD curl -f http://localhost:"$PORT"/ || exit 1
+# ENV PORT=10000 satırını kaldırdık, Render portu kendisi atayacak
 
 # 8. Gunicorn ile Flask uygulamasını başlat
 CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "--timeout", "120", "app:app"]
