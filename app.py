@@ -6,7 +6,7 @@ import re
 import random
 import ssl
 import socket
-import whois
+import whois as whois_module
 import dns.resolver
 import time
 from bs4 import BeautifulSoup
@@ -286,7 +286,7 @@ class InstagramPhishingDetector:
         # domain yaşı kontrolü
         domain_age_score = 1.0
         try:
-            domain_info = whois.whois(domain)
+            domain_info = whois_module.whois(domain)
             if domain_info.creation_date:
                 
                 if isinstance(domain_info.creation_date, list):
@@ -864,6 +864,7 @@ class InstagramPhishingDetector:
             else:
                 print("Driver None, kapatma yapılmadı.")
     
+    # scan_url metodunun ilgili kısmı
     def scan_url(self, url):
             """User-friendly method to analyze a URL and display results"""
             print("\n" + "="*60)
@@ -891,7 +892,19 @@ class InstagramPhishingDetector:
                         print(f"  • Similarity: {(1-typo.get('normalized_distance', 1))*100:.1f}%")
                     if "domain_age" in domain_details:
                         age = domain_details["domain_age"]
-                        print(f"  • Domain age: {age.get('age_days', 'Unknown')} days" if age.get("creation_date") else "  • Domain age: Unknown (suspicious)")
+                        print(f"  • Domain age: {age.get('age_days', 'Unknown')} days" if age.get('age_days') is not None else "  • Domain age: Unknown")
+                        if age.get("creation_date"):
+                            print(f"  • Creation date: {age.get('creation_date')}")
+                        if age.get("registrar"):
+                            print(f"  • Registrar: {age.get('registrar')}")
+                        if age.get("whois_server"):
+                            print(f"  • WHOIS Server: {age.get('whois_server')}")
+                        if age.get("note"):
+                            print(f"  • Note: {age.get('note')}")
+                        if age.get("error"):
+                            print(f"  • Error: {age.get('error')}")
+                        if age.get("score") is not None:
+                            print(f"  • Score: {age.get('score'):.2f}")
                     
                     # URL Analiiz
                     url_details = result["details"].get("url_analysis", {})
@@ -993,22 +1006,48 @@ def index():
             if "domain_age" in domain_details:
                 details["domain_analysis"]["domain_age"] = {
                     "age_days": domain_details["domain_age"].get("age_days", "Unknown"),
-                    "creation_date": domain_details["domain_age"].get("creation_date", None)
+                    "creation_date": domain_details["domain_age"].get("creation_date", None),
+                    "registrar": domain_details["domain_age"].get("registrar", "Unknown"),
+                    "whois_server": domain_details["domain_age"].get("whois_server", "Unknown"),
+                    "note": domain_details["domain_age"].get("note", None),
+                    "error": domain_details["domain_age"].get("error", None),
+                    "score": domain_details["domain_age"].get("score", None)
                 }
             if "dns" in domain_details:
                 details["domain_analysis"]["dns"] = {
-                    "count": domain_details["dns"].get("count", "Unknown")
+                    "count": domain_details["dns"].get("count", "Unknown"),
+                    "ns_records": domain_details["dns"].get("ns_records", [])
                 }
             
             # URL Analizi
             url_details = result["details"].get("url_analysis", {})
             if "suspicious_keywords" in url_details and url_details["suspicious_keywords"].get("found"):
                 details["url_analysis"]["suspicious_keywords"] = {
-                    "found": url_details["suspicious_keywords"].get("found", [])
+                    "found": url_details["suspicious_keywords"].get("found", []),
+                    "count": url_details["suspicious_keywords"].get("count", 0)
                 }
             if "subdomains" in url_details:
                 details["url_analysis"]["subdomains"] = {
-                    "count": url_details["subdomains"].get("count", 0)
+                    "count": url_details["subdomains"].get("count", 0),
+                    "parts": url_details["subdomains"].get("parts", [])
+                }
+            if "brand_in_subdomain" in url_details:
+                details["url_analysis"]["brand_in_subdomain"] = {
+                    "detected": url_details["brand_in_subdomain"].get("detected", False)
+                }
+            if "encoded_characters" in url_details:
+                details["url_analysis"]["encoded_characters"] = {
+                    "count": url_details["encoded_characters"].get("count", 0)
+                }
+            if "query_parameters" in url_details:
+                details["url_analysis"]["query_parameters"] = {
+                    "count": url_details["query_parameters"].get("count", 0),
+                    "parameters": url_details["query_parameters"].get("parameters", [])
+                }
+            if "path_depth" in url_details:
+                details["url_analysis"]["path_depth"] = {
+                    "depth": url_details["path_depth"].get("depth", 0),
+                    "parts": url_details["path_depth"].get("parts", [])
                 }
             
             # SSL Analizi
@@ -1016,19 +1055,40 @@ def index():
             details["ssl_analysis"] = {
                 "has_https": ssl_details.get("has_https", False),
                 "certificate_valid": ssl_details.get("certificate_valid", False),
-                "expires_soon": ssl_details.get("expires_soon", False)
+                "trusted_issuer": ssl_details.get("trusted_issuer", False),
+                "expires_soon": ssl_details.get("expires_soon", False),
+                "issuer": ssl_details.get("issuer", "Unknown"),
+                "expiration_date": ssl_details.get("expiration_date", None),
+                "error": ssl_details.get("error", None)
             }
             
             # İçerik Analizi
             content_details = result["details"].get("content_analysis", {})
-            if "suspicious_forms" in content_details and content_details["suspicious_forms"].get("detected"):
+            if "suspicious_forms" in content_details:
                 details["content_analysis"]["suspicious_forms"] = {
-                    "detected": True
+                    "detected": content_details["suspicious_forms"].get("detected", False),
+                    "reason": content_details["suspicious_forms"].get("reason", None)
+                }
+            if "instagram_branding" in content_details:
+                details["content_analysis"]["instagram_branding"] = {
+                    "detected": content_details["instagram_branding"].get("detected", False),
+                    "reason": content_details["instagram_branding"].get("reason", None)
+                }
+            if "external_scripts" in content_details:
+                details["content_analysis"]["external_scripts"] = {
+                    "count": content_details["external_scripts"].get("count", 0),
+                    "reason": content_details["external_scripts"].get("reason", None)
+                }
+            if "hidden_elements" in content_details:
+                details["content_analysis"]["hidden_elements"] = {
+                    "count": content_details["hidden_elements"].get("count", 0),
+                    "reason": content_details["hidden_elements"].get("reason", None)
                 }
             if "urgency_language" in content_details and content_details["urgency_language"].get("detected"):
                 details["content_analysis"]["urgency_language"] = {
-                    "detected": True,
-                    "phrases": content_details["urgency_language"].get("phrases", [])
+                    "detected": content_details["urgency_language"].get("detected", False),
+                    "phrases": content_details["urgency_language"].get("phrases", []),
+                    "reason": content_details["urgency_language"].get("reason", None)
                 }
             if "error" in content_details:
                 details["content_analysis"]["error"] = content_details["error"]
@@ -1040,11 +1100,13 @@ def index():
                     "test_performed": True,
                     "credentials_accepted": honey_details.get("credentials_accepted", False),
                     "redirected": honey_details.get("redirected", False),
-                    "current_url": honey_details.get("current_url", "N/A") if honey_details.get("redirected") else "No",
+                    "current_url": honey_details.get("current_url", "N/A") if honey_details.get("redirected") else "No redirect",
                     "two_factor_detected": honey_details.get("two_factor_detected", False),
                     "two_factor_accepted_fake_code": honey_details.get("two_factor_accepted_fake_code", False),
                     "redirected_to_legit_instagram": honey_details.get("redirected_to_legit_instagram", False),
-                    "redirected_to_legit_instagram_without_2fa": honey_details.get("redirected_to_legit_instagram_without_2fa", False)
+                    "redirected_to_legit_instagram_without_2fa": honey_details.get("redirected_to_legit_instagram_without_2fa", False),
+                    "note": honey_details.get("note", None),
+                    "error": honey_details.get("error", None)
                 }
                 if honey_details.get("two_factor_detected"):
                     details["honey_credentials_test"]["two_factor_result"] = "Accepted" if honey_details.get("two_factor_accepted_fake_code") else "Rejected"
