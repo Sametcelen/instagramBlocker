@@ -17,30 +17,50 @@
                 {% else %}
                     <div class="safe">✅ Güvenilir Site</div>
                 {% endif %}
-                <p><strong>Güvenilirlik:</strong> {{ "%.1f"|format(result.confidence * 100) }}%</p>
+                <p><strong>Oran:</strong> {{ "%.1f"|format(result.confidence * 100) }}%</p>
                 <p><strong>Neden:</strong> {{ result.reason }}</p>
                 {% if result.details is defined %}
                     <ul>
                         <!-- Domain Analizi -->
                         {% if result.details.domain_analysis %}
-                            <li>Alan Analizi:
-                                <ul>
-                                    {% if result.details.domain_analysis.typosquatting %}
-                                        <li>Benzer Alan: {{ result.details.domain_analysis.typosquatting.closest_legitimate_domain }} (Benzerlik: {{ "%.1f"|format((1 - result.details.domain_analysis.typosquatting.normalized_distance) * 100) }}%)</li>
-                                    {% endif %}
-                                    {% if result.details.domain_analysis.domain_age and result.details.domain_analysis.domain_age.age_days is not none %}
+                        <li>Alan Analizi:
+                            <ul>
+                                {% if result.details.domain_analysis.typosquatting %}
+                                    <li>Benzer Alan: {{ result.details.domain_analysis.typosquatting.closest_legitimate_domain }} (Benzerlik: {{ "%.1f"|format((1 - result.details.domain_analysis.typosquatting.normalized_distance) * 100) }}%)</li>
+                                {% endif %}
+                                {% if result.details.domain_analysis.domain_age %}
+                                    {% if result.details.domain_analysis.domain_age.age_days is not none %}
                                         <li>Alan Yaşı: {{ result.details.domain_analysis.domain_age.age_days }} gün</li>
                                     {% else %}
                                         <li>Alan Yaşı: Bilinmiyor</li>
                                     {% endif %}
-                                    {% if result.details.domain_analysis.dns and result.details.domain_analysis.dns.count is not none %}
-                                        <li>NS Kayıtları: {{ result.details.domain_analysis.dns.count }} adet</li>
-                                    {% else %}
-                                        <li>NS Kayıtları: Bilinmiyor</li>
+                                    {% if result.details.domain_analysis.domain_age.creation_date %}
+                                        <li>Oluşturulma Tarihi: {{ result.details.domain_analysis.domain_age.creation_date }}</li>
                                     {% endif %}
-                                </ul>
-                            </li>
-                        {% endif %}
+                                    {% if result.details.domain_analysis.domain_age.registrar != "Unknown" %}
+                                        <li>Kayıt Şirketi: {{ result.details.domain_analysis.domain_age.registrar }}</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.domain_age.whois_server != "Unknown" %}
+                                        <li>WHOIS Sunucusu: {{ result.details.domain_analysis.domain_age.whois_server }}</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.domain_age.note %}
+                                        <li>Not: {{ result.details.domain_analysis.domain_age.note }}</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.domain_age.error %}
+                                        <li>Hata: {{ result.details.domain_analysis.domain_age.error }}</li>
+                                    {% endif %}
+                                    {% if result.details.domain_analysis.domain_age.score is not none %}
+                                        <li>Skor: {{ "%.2f"|format(result.details.domain_analysis.domain_age.score) }}</li>
+                                    {% endif %}
+                                {% endif %}
+                                {% if result.details.domain_analysis.dns and result.details.domain_analysis.dns.count is not none %}
+                                    <li>NS Kayıtları: {{ result.details.domain_analysis.dns.count }} adet</li>
+                                {% else %}
+                                    <li>NS Kayıtları: Bilinmiyor</li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                    {% endif %}
                         <!-- URL Yapısı -->
                         {% if result.details.url_analysis %}
                             <li>URL Yapısı:
